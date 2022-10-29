@@ -21,13 +21,11 @@ from utils.general import (LOGGER, Profile, check_dataset, check_img_size, check
                            coco80_to_coco91_class, colorstr, increment_path, print_args,
                            scale_boxes, xywh2xyxy, xyxy2xywh)
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
-from utils.plots import output_to_target, plot_val_study
-from utils.torch_utils import select_device, smart_inference_mode
-
+from utils.plots import plot_val_study
+from utils.torch_utils import smart_inference_mode
 from utils.landmark.general import non_max_suppression_face
-from utils.landmark.loss import compute_loss
-from utils.landmark.plots import plot_imagesf, output_to_targetf, plot_study_txt
-from utils.torch_utils import select_device, time_sync
+from utils.landmark.plots import plot_imagesf, output_to_targetf
+from utils.torch_utils import select_device
 
 
 def save_one_txt(predn, save_conf, shape, file):
@@ -194,8 +192,7 @@ def run(
 
         # Loss
         if compute_loss:
-            # loss += compute_loss(train_out, targets, model)[1]  # box, obj, cls
-            loss += compute_loss([x.float() for x in train_out], targets, model)[1][:3]
+            loss += compute_loss(train_out, targets)[1][:3]  # box, obj, cls
 
         # NMS
         targets[:, 2:6] *= torch.tensor((width, height, width, height), device=device)  # to pixels
