@@ -38,7 +38,7 @@ from utils.general import (LOGGER, check_amp, check_dataset, check_file, check_g
                            one_cycle, print_args, print_mutation, strip_optimizer, yaml_save)
 
 from utils.loggers import Loggers
-from utils.loggers import GenericLogger
+# from utils.loggers import GenericLogger
 from utils.loggers.comet.comet_utils import check_comet_resume
 from utils.metrics import fitness
 from utils.plots import plot_evolve
@@ -77,8 +77,16 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     # Loggers
     data_dict = None
     if RANK in {-1, 0}:
-        # loggers = Loggers(save_dir, weights, opt, hyp, LOGGER)  # loggers instance
-        logger = GenericLogger(opt=opt, console_logger=LOGGER)
+        loggers = Loggers(save_dir, weights, opt, hyp, LOGGER)  # loggers instance
+
+        # Register actions
+        for k in methods(loggers):
+            callbacks.register_action(k, callback=getattr(loggers, k))
+
+        # Process custom dataset artifact link
+        data_dict = loggers.remote_dataset
+        if resume:  # If resuming runs from remote artifact
+            weights, epochs, hyp, batch_size = opt.weights, opt.epochs, opt.hyp, opt.batch_size
 
     # Config
     plots = not evolve and not opt.noplots  # create plots
@@ -124,8 +132,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     # Batch size
     if RANK == -1 and batch_size == -1:  # single-GPU only, estimate best batch size
         batch_size = check_train_batch_size(model, imgsz, amp)
-        # loggers.on_params_update({"batch_size": batch_size})
-        logger.update_params({"batch_size": batch_size})
+        loggers.on_params_update({"batch_size": batch_size})
 
     # Optimizer
     nbs = 64  # nominal batch size
@@ -200,7 +207,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)  # run AutoAnchor
             model.half().float()  # pre-reduce anchor precision
 
-        callbacks.run('on_pretrain_routine_end', labels, names)
+        callbacks.run('on_pretrain_routine_end', labels[:,:5], names)
 
     # DDP mode
     if cuda and RANK != -1:
@@ -344,14 +351,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             stop = stopper(epoch=epoch, fitness=fi)  # early stop check
             if fi > best_fitness:
                 best_fitness = fi
-            log_vals = list(mloss) + list(results) + lr
+            log_vals = list(mloss)[:-2] + list(results) + lr
             callbacks.run('on_fit_epoch_end', log_vals, epoch, best_fitness, fi)
-            tags = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
-                    'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
-                    'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
-                    'x/lr0', 'x/lr1', 'x/lr2']
-            metrics_dict = dict(zip(tags, log_vals))
-            logger.log_metrics(metrics_dict, epoch)
 
             # Save model
             if (not nosave) or (final_epoch and not evolve):  # if save
@@ -406,8 +407,6 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                         plots=plots,
                         callbacks=callbacks,
                         compute_loss=compute_loss)
-                    if is_coco:
-                        callbacks.run('on_fit_epoch_end', list(mloss) + list(results) + lr, epoch, best_fitness, fi)
 
         callbacks.run('on_train_end', last, best, epoch, results)
 
