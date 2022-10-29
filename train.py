@@ -23,7 +23,6 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-# import landmark.test as test  # import test.py to get mAP after each epoch
 import landmark.val as validate
 from models.experimental import attempt_load
 from models.yolo import Model
@@ -38,7 +37,6 @@ from utils.general import (LOGGER, check_amp, check_dataset, check_file, check_g
                            one_cycle, print_args, print_mutation, strip_optimizer, yaml_save)
 
 from utils.loggers import Loggers
-# from utils.loggers import GenericLogger
 from utils.loggers.comet.comet_utils import check_comet_resume
 from utils.metrics import fitness
 from utils.plots import plot_evolve
