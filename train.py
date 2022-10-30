@@ -40,7 +40,7 @@ from utils.loggers import Loggers
 from utils.loggers.comet.comet_utils import check_comet_resume
 from utils.metrics import fitness
 from utils.plots import plot_evolve
-from utils.landmark.loss import compute_loss
+from utils.landmark.loss import ComputeLoss
 from utils.torch_utils import (EarlyStopping, ModelEMA, de_parallel, select_device, smart_DDP, smart_optimizer,
                                smart_resume, torch_distributed_zero_first)
 
@@ -234,6 +234,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
+    compute_loss = ComputeLoss(model)  # init loss class
     callbacks.run('on_train_start')
     LOGGER.info(f'Image sizes {imgsz} train, {imgsz} val\n'
                 f'Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n'
@@ -291,7 +292,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             # Forward
             with torch.cuda.amp.autocast(amp):
                 pred = model(imgs)  # forward
-                loss, loss_items = compute_loss(pred, targets.to(device), model)  # loss scaled by batch_size
+                loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -414,13 +415,13 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
 def parse_opt(known=False):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default=ROOT / 'yolov5n-lmk.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default=ROOT / '', help='initial weights path')
     parser.add_argument('--cfg', type=str, default=ROOT / 'models/landmark/yolov5n-lmk.yaml', help='model.yaml path')
-    parser.add_argument('--data', type=str, default=ROOT / 'data/key_point.yaml', help='dataset.yaml path')
+    parser.add_argument('--data', type=str, default=ROOT / 'data/widerface_landmark_yolo_type.yaml', help='dataset.yaml path')
     parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=3, help='total training epochs')
+    parser.add_argument('--epochs', type=int, default=20, help='total training epochs')
     parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs, -1 for autobatch')
-    parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
+    parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=800, help='train, val image size (pixels)')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
@@ -436,7 +437,7 @@ def parse_opt(known=False):
     parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
     parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW'], default='SGD', help='optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
-    parser.add_argument('--workers', type=int, default=8, help='max dataloader workers (per RANK in DDP mode)')
+    parser.add_argument('--workers', type=int, default=0, help='max dataloader workers (per RANK in DDP mode)')
     parser.add_argument('--project', default=ROOT / 'runs/train-lmk', help='save to project/name')
     parser.add_argument('--name', default='exp', help='save to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
