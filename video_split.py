@@ -147,5 +147,5 @@ def process(video_file):
 
 
 if __name__ == "__main__":
-    video_path = r'E:\hand_val_data\training_room'
+    video_path = r'' # video path
     process(video_path)
