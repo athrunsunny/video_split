@@ -320,6 +320,7 @@ def add_trigger1(person_list, nc, frame_id, ges_len=5):
                 if effect_iou > 0.95:
                     # 判断手框的iou
                     tmp_nc = limit_hand_area(personpre, personnow)
+                    personnow['act'] = True
                 else:
                     pass
 
