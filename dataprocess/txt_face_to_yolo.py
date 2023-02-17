@@ -14,12 +14,6 @@ import yaml
 from tqdm import tqdm
 
 
-# txt_labels_path = r'G:\hp_tracking_proj\add_new_data\face_lmk\labels\eee'
-# img_path = r'G:\hp_tracking_proj\add_new_data\face_lmk\labels\img'
-#
-# des_label_path = r'G:\hp_tracking_proj\add_new_data\face_lmk\labels\labels'
-# des_image_path = r'G:\hp_tracking_proj\add_new_data\face_lmk\labels\images'
-
 def change_raw_label_format(origin_label, image_path, des_label_path, des_image_path):
     # 用途：1、取image_path下的所有图片；
     # 2、根据图片名取到相应的label的txt文件；
